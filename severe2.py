@@ -3,16 +3,10 @@ import math
 
 app = Flask(__name__)
 
-# Function to calculate battery level and battery life (placeholders)
-# def calculate_battery_level(voltage):
-#    return voltage * 10
-
-#def calculate_battery_life(voltage):
-#    return voltage * 20
-
 # Placeholder for the bme_prediction function
 def bme_prediction(temperature, humidity, pressure, gas_resistance):
-    return 1
+    prediction = temperature + humidity + pressure + gas_resistance
+    return prediction
 
 @app.route('/')
 def home():
@@ -36,7 +30,7 @@ def receive_data():
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-def process_data(data, data_type, gateway_module_id=None):
+def process_data(data):
     temperature = float(data.get('Temperature', 0))
     humidity = float(data.get('Humidity', 0))
     pressure = float(data.get('Pressure', 0))
