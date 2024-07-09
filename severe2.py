@@ -7,9 +7,9 @@ app = Flask(__name__)
 # Configure database connection
 db_config = {
     'user': 'root',
-    'password': '',  # Par défaut, MySQL dans XAMPP n'a pas de mot de passe pour l'utilisateur root
+    'password': '',
     'host': 'localhost',
-    'database': 'server_database2'  # Nom de la base de données
+    'database': 'server_database2'
 }
 
 # Function to calculate battery level and battery life (placeholders)
@@ -22,6 +22,10 @@ def calculate_battery_life(voltage):
 # Placeholder for the bme_prediction function
 def bme_prediction(temperature, humidity, pressure, gas_resistance, gas_index, meas_index):
     return 1
+
+@app.route('/')
+def home():
+    return "Hello, Flask!"
 
 @app.route('/data', methods=['POST'])
 def receive_data():
@@ -62,15 +66,14 @@ def process_data(data, data_type, gateway_module_id=None):
     acc = math.sqrt(ax**2 + ay**2 + az**2)
     ang_veloc = math.sqrt(gx**2 + gy**2 + gz**2)
 
-    acc_threshold = 1.0  # Example threshold
-    ang_veloc_threshold = 1.0  # Example threshold
+    acc_threshold = 1.0
+    ang_veloc_threshold = 1.0
     stability = 0 if acc > acc_threshold or ang_veloc > ang_veloc_threshold else 1
 
     batt_level = calculate_battery_level(voltage)
     batt_life = calculate_battery_life(voltage)
     prediction = bme_prediction(temperature, humidity, pressure, gas_resistance, gas_index, meas_index)
 
-    # Insert data into the database
     insert_into_db(data_type, module_id, weight, voltage, batt_level, batt_life, prediction, humidity,
                    temperature, pressure, gas_resistance, status, gas_index, meas_index, stability, ax, ay, az, gx, gy, gz, gateway_module_id, num_sim)
 
@@ -80,7 +83,6 @@ def insert_into_db(data_type, module_id, weight, voltage, batt_level, batt_life,
     cursor = conn.cursor()
 
     if data_type == "g":
-        # Check if the module_gtw_id exists in the gateway table
         cursor.execute("SELECT 1 FROM gateway WHERE module_gtw_id = %s", (module_id,))
         if not cursor.fetchone():
             cursor.execute("""
@@ -92,7 +94,6 @@ def insert_into_db(data_type, module_id, weight, voltage, batt_level, batt_life,
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (module_id, humidity, temperature, pressure, status, weight, num_sim))
     else:
-        # Check if the module_id exists in the module table
         cursor.execute("SELECT 1 FROM module WHERE module_id = %s", (module_id,))
         if not cursor.fetchone():
             cursor.execute("""
