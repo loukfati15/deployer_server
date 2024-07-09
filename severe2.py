@@ -1,16 +1,7 @@
 from flask import Flask, request, jsonify
 import math
-import mysql.connector
 
 app = Flask(__name__)
-
-# Configure database connection
-db_config = {
-    'user': 'root',
-    'password': '',
-    'host': 'localhost',
-    'database': 'server_database2'
-}
 
 # Function to calculate battery level and battery life (placeholders)
 def calculate_battery_level(voltage):
@@ -29,20 +20,30 @@ def home():
 
 @app.route('/data', methods=['POST'])
 def receive_data():
-    data = request.get_json()
+    try:
+        data = request.get_json()
+        print(f"Received data: {data}")
 
-    # Extract gateway_data
-    gateway_data = data.get('gateway_data', {})
-    module_data_list = data.get('module_data', [])
+        # Extract gateway_data
+        gateway_data = data.get('gateway_data', {})
+        module_data_list = data.get('module_data', [])
 
-    # Process gateway_data
-    process_data(gateway_data, "g")
+        # Process gateway_data
+        processed_gateway_data = process_data(gateway_data, "g")
 
-    # Process each module data
-    for module_data in module_data_list:
-        process_data(module_data, "m", gateway_data.get('Module_id'))
+        # Process each module data
+        processed_module_data_list = [process_data(module_data, "m", gateway_data.get('Module_id')) for module_data in module_data_list]
 
-    return jsonify({"message": "Data received and processed"}), 200
+        response = {
+            "message": "Data received and processed",
+            "gateway_data": processed_gateway_data,
+            "module_data": processed_module_data_list
+        }
+
+        return jsonify(response), 200
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 def process_data(data, data_type, gateway_module_id=None):
     module_id = data.get('Module_id')
@@ -74,41 +75,34 @@ def process_data(data, data_type, gateway_module_id=None):
     batt_life = calculate_battery_life(voltage)
     prediction = bme_prediction(temperature, humidity, pressure, gas_resistance, gas_index, meas_index)
 
-    insert_into_db(data_type, module_id, weight, voltage, batt_level, batt_life, prediction, humidity,
-                   temperature, pressure, gas_resistance, status, gas_index, meas_index, stability, ax, ay, az, gx, gy, gz, gateway_module_id, num_sim)
+    processed_data = {
+        "module_id": module_id,
+        "temperature": temperature,
+        "humidity": humidity,
+        "pressure": pressure,
+        "gas_resistance": gas_resistance,
+        "status": status,
+        "gas_index": gas_index,
+        "meas_index": meas_index,
+        "weight": weight,
+        "voltage": voltage,
+        "ax": ax,
+        "ay": ay,
+        "az": az,
+        "gx": gx,
+        "gy": gy,
+        "gz": gz,
+        "num_sim": num_sim,
+        "acc": acc,
+        "ang_veloc": ang_veloc,
+        "stability": stability,
+        "batt_level": batt_level,
+        "batt_life": batt_life,
+        "prediction": prediction,
+        "gateway_module_id": gateway_module_id
+    }
 
-def insert_into_db(data_type, module_id, weight, voltage, batt_level, batt_life, prediction, humidity,
-                   temperature, pressure, gas_resistance, status, gas_index, meas_index, stability, ax, ay, az, gx, gy, gz, gateway_module_id, num_sim):
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-
-    if data_type == "g":
-        cursor.execute("SELECT 1 FROM gateway WHERE module_gtw_id = %s", (module_id,))
-        if not cursor.fetchone():
-            cursor.execute("""
-                INSERT INTO gateway (module_gtw_id) VALUES (%s)
-            """, (module_id,))
-        
-        cursor.execute("""
-        INSERT INTO gateway_data (module_gtw_id, ext_humidity, ext_temperature, ext_pressure, status, total_weight, num_sim)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (module_id, humidity, temperature, pressure, status, weight, num_sim))
-    else:
-        cursor.execute("SELECT 1 FROM module WHERE module_id = %s", (module_id,))
-        if not cursor.fetchone():
-            cursor.execute("""
-                INSERT INTO module (module_id) VALUES (%s)
-            """, (module_id,))
-        
-        cursor.execute("""
-        INSERT INTO module_data (module_id, type, weight, voltage, battery_level, battery_life, health, humidity,
-        temperature, pressure, gas_resistance, status_bme, gas_index, meas_index, stability, ax, ay, az, gx, gy, gz, module_gtw_id_sender)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (module_id, data_type, weight, voltage, batt_level, batt_life, prediction, humidity,
-              temperature, pressure, gas_resistance, status, gas_index, meas_index, stability, ax, ay, az, gx, gy, gz, gateway_module_id))
-
-    conn.commit()
-    conn.close()
+    return processed_data
 
 if __name__ == '__main__':
     app.run(debug=True)
