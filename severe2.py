@@ -99,6 +99,7 @@ def process_data(data, data_type, gateway_module_id=None):
         "batt_level": batt_level,
         "batt_life": batt_life,
         "prediction": prediction,
+        "prediction2": 5,
         "gateway_module_id": gateway_module_id
     }
 
