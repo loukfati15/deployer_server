@@ -18,8 +18,8 @@ def receive_data():
         data = request.get_json()
         print(f"Received data: {data}")
 
-        # Extract gateway_data
-        gateway_data = data.get('data', {})
+        # Extract data
+        data = data.get('data', {})
 
         response = {
             "message": "Data received and processed"
