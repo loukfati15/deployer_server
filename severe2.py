@@ -1,7 +1,15 @@
 from flask import Flask, request, jsonify
+import ipinfo
+from geopy.geocoders import Nominatim
 import math
 
 app = Flask(__name__)
+
+# Initialize the geolocator
+geolocator = Nominatim(user_agent="geoapiExercises")
+
+# Global variable to store the latest received data
+latest_data = {}
 
 # Function to calculate battery level and battery life (placeholders)
 def calculate_battery_level(voltage):
@@ -14,12 +22,48 @@ def calculate_battery_life(voltage):
 def bme_prediction(temperature, humidity, pressure, gas_resistance, gas_index, meas_index):
     return 1
 
+# Function to get IP information
+def get_ip_info(ip_address):
+    try:
+        access_token = '72511d15b2d4da'  # Replace with your ipinfo access token
+        handler = ipinfo.getHandler(access_token)
+        details = handler.getDetails(ip_address)
+        
+        city = details.city
+        region = details.region
+        country = details.country
+        
+        # Use geopy to get more precise latitude and longitude
+        location = geolocator.geocode(f"{city}, {region}, {country}")
+        if location:
+            latitude = location.latitude
+            longitude = location.longitude
+        else:
+            latitude, longitude = details.loc.split(',')
+
+        return {
+            "country": country,
+            "region": region,
+            "city": city,
+            "postal": details.postal,
+            "latitude": latitude,
+            "longitude": longitude,
+            "timezone": details.timezone,
+            "isp": details.org,
+            "asn": details.org.split(' ')[0]  # Assuming the ASN is the first part of org
+        }
+    except Exception as e:
+        print(f"Error fetching IP info: {e}")
+        return {"error": "Unable to fetch IP information"}
+
 @app.route('/')
 def home():
-    return "Hello, Flask!"
+    # Display the latest received data
+    return jsonify(latest_data)
 
 @app.route('/data', methods=['POST'])
 def receive_data():
+    global latest_data
     try:
         data = request.get_json()
         print(f"Received data: {data}")
@@ -31,16 +75,26 @@ def receive_data():
         # Process gateway_data
         processed_gateway_data = process_data(gateway_data, "g")
 
+        # Get IP information if IP address is present in gateway_data
+        ip_address = gateway_data.get('Ip_address')
+        if ip_address:
+            ip_info = get_ip_info(ip_address)
+            processed_gateway_data.update(ip_info)
+        else:
+            ip_info = {}
+
         # Process each module data
         processed_module_data_list = [process_data(module_data, "m", gateway_data.get('Module_id')) for module_data in module_data_list]
 
-        response = {
+        latest_data = {
             "message": "Data received and processed",
             "gateway_data": processed_gateway_data,
-            "module_data": processed_module_data_list
+            "module_data": processed_module_data_list,
+            "ip_info": ip_info
         }
 
-        return jsonify(response), 200
+        print(f"Response data: {latest_data}")
+        return jsonify(latest_data), 200
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
