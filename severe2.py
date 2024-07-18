@@ -30,7 +30,7 @@ def calculate_battery_life(voltage):
 # Function to get IP information
 def get_ip_info(ip_address):
     try:
-        access_token = os.getenv('IPINFO_ACCESS_TOKEN')  # Use environment variable for ipinfo access token
+        access_token = os.getenv('72511d15b2d4da')  # Use environment variable for ipinfo access token
         if not access_token:
             raise ValueError("IPINFO_ACCESS_TOKEN environment variable not set")
 
