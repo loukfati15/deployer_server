@@ -1,14 +1,18 @@
 from flask import Flask, request, jsonify
 import ipinfo
 from geopy.geocoders import Nominatim
-import math
+import os
+import logging
 
 app = Flask(__name__)
 
 # Initialize the geolocator
 geolocator = Nominatim(user_agent="geoapiExercises")
 
-# Placeholder for the bme_prediction function
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Function to predict BME (placeholder)
 def bme_prediction(temperature, humidity, pressure, gas_resistance):
     p = temperature + humidity + pressure + gas_resistance
     return p
@@ -16,7 +20,7 @@ def bme_prediction(temperature, humidity, pressure, gas_resistance):
 # Global variable to store the latest received data
 latest_data = {}
 
-# Function to calculate battery level and battery life (placeholders)
+# Function to calculate battery level and life (placeholders)
 def calculate_battery_level(voltage):
     return voltage * 10
 
@@ -26,7 +30,10 @@ def calculate_battery_life(voltage):
 # Function to get IP information
 def get_ip_info(ip_address):
     try:
-        access_token = '72511d15b2d4da'  # Replace with your ipinfo access token
+        access_token = os.getenv('IPINFO_ACCESS_TOKEN')  # Use environment variable for ipinfo access token
+        if not access_token:
+            raise ValueError("IPINFO_ACCESS_TOKEN environment variable not set")
+
         handler = ipinfo.getHandler(access_token)
         details = handler.getDetails(ip_address)
         
@@ -54,7 +61,7 @@ def get_ip_info(ip_address):
             "asn": details.org.split(' ')[0]  # Assuming the ASN is the first part of org
         }
     except Exception as e:
-        print(f"Error fetching IP info: {e}")
+        logging.error(f"Error fetching IP info: {e}")
         return {"error": "Unable to fetch IP information"}
 
 @app.route('/')
@@ -67,7 +74,16 @@ def receive_data():
     global latest_data
     try:
         data = request.get_json()
-        print(f"Received data: {data}")
+        if not data:
+            raise ValueError("No data provided")
+        
+        # Further validation for required fields
+        required_fields = ['Temperature', 'Humidity', 'Pressure', 'Gas_resistance']
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field: {field}")
+
+        logging.info(f"Received data: {data}")
 
         # Extract gateway_data
         gateway_data = data.get('data', {})
@@ -80,10 +96,13 @@ def receive_data():
             "gateway_data": processed_gateway_data
         }
 
-        print(f"Response data: {latest_data}")
+        logging.info(f"Response data: {latest_data}")
         return jsonify(latest_data), 200
+    except ValueError as ve:
+        logging.error(f"Validation Error: {ve}")
+        return jsonify({"error": str(ve)}), 400
     except Exception as e:
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 def process_data(data):
